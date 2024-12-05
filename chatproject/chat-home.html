@@ -1,0 +1,201 @@
+<html>
+	<head>
+		<style>
+			body {
+				background-color: #121212;
+				color: #EDEDED;
+				font-family: Arial, sans-serif;
+				margin: 0;
+				padding: 0;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				height: 100vh;
+			}
+
+			.chat-container {
+				display: flex;
+				flex-direction: column;
+				max-width: 500px;
+				width: 100%;
+				height: 80%;
+				border-radius: 10px;
+				background-color: #1F1F1F;
+				box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+				overflow: hidden;
+			}
+
+			ul {
+				list-style-type: none;
+				padding: 10px;
+				margin: 0;
+				flex-grow: 1;
+				overflow-y: auto;
+				display: flex;
+				flex-direction: column;
+			}
+
+			ul li {
+				margin: 10px 0;
+				padding: 10px;
+				border-radius: 10px;
+				width: fit-content;
+				max-width: 70%;
+				font-size: 14px;
+				line-height: 1.5;
+			}
+
+			.enviada {
+				background-color: #056162;
+				color: #EDEDED;
+				align-self: flex-end;
+				text-align: right;
+				margin-left: auto;
+			}
+
+			.recebida {
+				background-color: #262D31;
+				color: #EDEDED;
+				align-self: flex-start;
+			}
+
+			.chatgpt-message {
+				background-color: #333333; /* Tom mais claro para ChatGPT */
+				color: #EDEDED;
+				align-self: flex-start;
+			}
+
+			.message-input {
+				display: flex;
+				padding: 10px;
+				background-color: #1F1F1F;
+				border-top: 1px solid #333;
+			}
+
+			#message {
+				width: 100%;
+				padding: 10px;
+				background-color: #2A2A2A;
+				border: none;
+				color: #EDEDED;
+				border-radius: 5px;
+				font-size: 14px;
+			}
+
+			button {
+				background-color: #056162;
+				color: white;
+				border: none;
+				padding: 10px 20px;
+				margin-left: 10px;
+				border-radius: 5px;
+				cursor: pointer;
+				font-size: 14px;
+			}
+
+			button:hover {
+				background-color: #04846c;
+			}
+
+			ul::-webkit-scrollbar {
+				width: 5px;
+			}
+
+			ul::-webkit-scrollbar-thumb {
+				background-color: #333;
+				border-radius: 5px;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div class="chat-container">
+			<ul id="messages"></ul>
+			<div class="message-input">
+				<input type="hidden" id="user" value="user-chat" />
+				<input type="text" id="message" placeholder="Digite sua mensagem..." />
+				<button onclick="enviar()">Enviar</button>
+			</div>
+		</div>
+
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
+
+		<script>
+			let mySocketId = null;
+
+			window.onload = () => {
+				let username = document.querySelector("#user").value;
+				if (username === 'undefined') {
+					window.location.href = "/";
+				}
+			};
+
+			const socket = io("http://localhost:4000/");
+
+			socket.on("connect", () => {
+				console.log("Conectado ao servidor com ID:", socket.id);
+				mySocketId = socket.id;
+			});
+
+			socket.on("message", (msg) => {
+				const ul = document.querySelector("#messages");
+				let li = document.createElement("li");
+
+				if (msg.username === "ChatGPT") {
+					li.classList.add("chatgpt-message");
+				} else if (msg.id === mySocketId) {
+					li.classList.add("enviada");
+				} else {
+					li.classList.add("recebida");
+				}
+
+				li.textContent = `${msg.username}: ${msg.message}`;
+				ul.appendChild(li);
+				ul.scrollTop = ul.scrollHeight;
+			});
+
+			socket.on("image", (msg) => {
+				const ul = document.querySelector("#messages");
+				let li = document.createElement("li");
+				li.classList.add("chatgpt-message");
+
+				const img = document.createElement("img");
+				img.src = msg.imageUrl;
+				img.style.maxWidth = "100%";
+				img.style.borderRadius = "10px";
+
+				li.appendChild(img);
+				ul.appendChild(li);
+				ul.scrollTop = ul.scrollHeight;
+			});
+
+			socket.on("sound", (msg) => {
+				if (msg.soundUrl) {
+					const audio = new Audio(msg.soundUrl);
+					audio.play().catch(error => console.error("Erro ao reproduzir som:", error));
+					
+					// Exibir uma mensagem indicando que o som foi reproduzido
+					const ul = document.querySelector("#messages");
+					let li = document.createElement("li");
+					li.classList.add("chatgpt-message");
+					li.textContent = `${msg.username} enviou um som!`;
+					ul.appendChild(li);
+					ul.scrollTop = ul.scrollHeight;
+				}
+			});
+
+
+			function enviar() {
+				let username = document.querySelector("#user").value;
+				let msg = document.querySelector("#message");
+				if (!msg.value) {
+					console.log("Digite algo");
+					return;
+				}
+
+				socket.emit("message", { id: mySocketId, username: username, message: msg.value });
+				msg.value = "";
+			}
+		</script>
+	</body>
+</html>
